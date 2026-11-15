@@ -1,11 +1,25 @@
-<div align="center">
+# DeshTunnel
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Encrypted Bangladesh VPN & Proxy Tunnel Android app (Kotlin + Jetpack Compose + Material 3) with `VpnService`, SOCKS5/HTTPS-TLS tunneling, DNS-over-TLS 1.3 (`1.1.1.1`, `9.9.9.9`, `94.140.14.14`), per-app split tunneling, live public IP verification, and Dark/Light mode in Bangla and English.
 
-  <h1>Built with AI Studio</h2>
+## Building an APK
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+### Option 1: GitHub Actions (Automatic APK Build)
+This repository includes `.github/workflows/build-apk.yml`.
+1. Push this repository to GitHub (via the AI Studio **Push to GitHub** menu or `git push`).
+2. Open the repository's **Actions** tab on GitHub and select **Build DeshTunnel APK** (triggered automatically on push to `main`/`master` or manually via **Run workflow**).
+3. Download **`DeshTunnel-debug-apk`** from the workflow run's **Artifacts** section.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+### Option 2: Local Command Line
+Requires **JDK 17**, **Android SDK** (`ANDROID_SDK_ROOT` configured), and **Gradle 9.3.1**:
 
-</div>
+```bash
+# Decode debug keystore if not already present
+base64 -d debug.keystore.base64 > debug.keystore
+
+# Build debug APK
+gradle assembleDebug
+```
+
+The output APK is generated at:
+`app/build/outputs/apk/debug/app-debug.apk`

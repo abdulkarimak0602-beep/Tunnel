@@ -1,0 +1,6 @@
+{
+  "name": "DeshTunnel",
+  "description": "Encrypted Bangladesh VPN & Proxy Tunnel for Bangladeshi expats abroad with SOCKS5/TLS tunneling, DNS-over-TLS, split tunneling, and dark mode.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

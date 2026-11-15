@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">DeshTunnel</string>
+    <string name="vpn_notification_channel_name">DeshTunnel VPN Status</string>
+    <string name="vpn_notification_channel_desc">Shows active encrypted Bangladesh tunnel connection status and live traffic</string>
+    <string name="vpn_notification_title_connected">DeshTunnel Connected</string>
+    <string name="vpn_notification_title_connecting">Connecting DeshTunnel…</string>
+    <string name="vpn_action_disconnect">Disconnect</string>
+</resources>
