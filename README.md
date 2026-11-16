@@ -7,11 +7,11 @@ Encrypted Bangladesh VPN & Proxy Tunnel Android app (Kotlin + Jetpack Compose + 
 ### Option 1: GitHub Actions (Automatic APK Build)
 This repository includes `.github/workflows/build-apk.yml`.
 1. Push this repository to GitHub (via the AI Studio **Push to GitHub** menu or `git push`).
-2. Open the repository's **Actions** tab on GitHub and select **Build DeshTunnel APK** (triggered automatically on push to `main`/`master` or manually via **Run workflow**).
+2. Open the repository's **Actions** tab on GitHub and select **Build DeshTunnel APK** (triggered automatically on push or manually via **Run workflow**).
 3. Download **`DeshTunnel-debug-apk`** from the workflow run's **Artifacts** section.
 
 ### Option 2: Local Command Line
-Requires **JDK 17**, **Android SDK** (`ANDROID_SDK_ROOT` configured), and **Gradle 9.3.1**:
+Requires **JDK 21**, **Android SDK** (`ANDROID_SDK_ROOT` configured), and **Gradle 9.3.1**:
 
 ```bash
 # Decode debug keystore if not already present
