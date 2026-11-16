@@ -241,6 +241,9 @@ class DeshVpnService : VpnService() {
                     builder.addRoute(dnsProvider.ip, 32)
                 } else {
                     builder.addRoute("0.0.0.0", 0)
+                    // Capture IPv6 in TUN as well so carrier IPv6 (e.g. Bahrain Batelco/Zain/stc) never leaks outside the BD IPv4 tunnel
+                    builder.addAddress("fd00:10:8::2", 128)
+                    builder.addRoute("::", 0)
                 }
 
                 if (!killSwitch) {
@@ -398,7 +401,10 @@ class DeshVpnService : VpnService() {
                         if (payloadLen > 0) {
                             val dnsPayload = buffer.copyOfRange(payloadOffset, payloadOffset + payloadLen)
                             serviceScope.launch {
-                                val dnsResp = if (useSecureDoT) {
+                                val isProxyGateway = !gateway.isBuiltInShield && gateway.protocol != TunnelProtocol.DNS_SHIELD
+                                val dnsResp = if (isProxyGateway && PacketUtils.isAaaaDnsQuery(dnsPayload)) {
+                                    PacketUtils.buildEmptyDnsResponse(dnsPayload)
+                                } else if (useSecureDoT) {
                                     dotResolver.resolve(dnsPayload)
                                 } else {
                                     dotResolver.resolveStandardUdp(dnsPayload)

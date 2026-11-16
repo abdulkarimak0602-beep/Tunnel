@@ -65,7 +65,9 @@ data class PublicIpInfo(
     val isp: String,
     val isBangladesh: Boolean,
     val latencyMs: Long,
-    val checkedAt: Long
+    val checkedAt: Long,
+    val asn: String = "",
+    val isLikelyResidentialIsp: Boolean = false
 )
 
 data class TunnelTelemetry(

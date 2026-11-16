@@ -58,14 +58,45 @@ object ProxyConnector {
     }
 
     fun openTunnelStream(
-        vpnService: VpnService,
+        vpnService: VpnService?,
         gateway: GatewayProfile,
         targetIp: ByteArray,
         targetPort: Int
     ): ProxyConnectionResult {
+        return openTunnelStreamInternal(
+            vpnService = vpnService,
+            gateway = gateway,
+            targetIp = targetIp,
+            targetHost = null,
+            targetPort = targetPort
+        )
+    }
+
+    fun openTunnelStreamByHost(
+        vpnService: VpnService?,
+        gateway: GatewayProfile,
+        targetHost: String,
+        targetPort: Int
+    ): ProxyConnectionResult {
+        return openTunnelStreamInternal(
+            vpnService = vpnService,
+            gateway = gateway,
+            targetIp = null,
+            targetHost = targetHost,
+            targetPort = targetPort
+        )
+    }
+
+    private fun openTunnelStreamInternal(
+        vpnService: VpnService?,
+        gateway: GatewayProfile,
+        targetIp: ByteArray?,
+        targetHost: String?,
+        targetPort: Int
+    ): ProxyConnectionResult {
         val rawSocket = Socket()
         try {
-            vpnService.protect(rawSocket)
+            vpnService?.protect(rawSocket)
             rawSocket.tcpNoDelay = true
             rawSocket.soTimeout = 15000
             rawSocket.connect(InetSocketAddress(gateway.host, gateway.port), 6000)
@@ -85,10 +116,11 @@ object ProxyConnector {
 
             when (gateway.protocol) {
                 TunnelProtocol.SOCKS5, TunnelProtocol.SOCKS5_TLS -> {
-                    performSocks5Connect(activeSocket, gateway, targetIp, targetPort)
+                    performSocks5Connect(activeSocket, gateway, targetIp, targetHost, targetPort)
                 }
                 TunnelProtocol.HTTPS_TLS -> {
-                    performHttpConnect(activeSocket, gateway, PacketUtils.ipBytesToString(targetIp), targetPort)
+                    val hostStr = targetHost ?: PacketUtils.ipBytesToString(requireNotNull(targetIp))
+                    performHttpConnect(activeSocket, gateway, hostStr, targetPort)
                 }
                 TunnelProtocol.DNS_SHIELD -> {
                     throw IllegalStateException("DNS_SHIELD does not proxy TCP streams")
@@ -129,7 +161,8 @@ object ProxyConnector {
     private fun performSocks5Connect(
         socket: Socket,
         gateway: GatewayProfile,
-        targetIp: ByteArray,
+        targetIp: ByteArray?,
+        targetHost: String?,
         targetPort: Int
     ) {
         val out = socket.getOutputStream()
@@ -151,16 +184,23 @@ object ProxyConnector {
             sendSocks5UserPass(out, input, gateway.username, gateway.password)
         }
 
-        // CONNECT IPv4
-        val req = ByteArray(10)
-        req[0] = 0x05
-        req[1] = 0x01 // CONNECT
-        req[2] = 0x00
-        req[3] = 0x01 // IPv4
-        System.arraycopy(targetIp, 0, req, 4, 4)
-        req[8] = ((targetPort ushr 8) and 0xFF).toByte()
-        req[9] = (targetPort and 0xFF).toByte()
-        out.write(req)
+        val reqStream = ByteArrayOutputStream()
+        reqStream.write(0x05)
+        reqStream.write(0x01) // CONNECT
+        reqStream.write(0x00)
+        if (!targetHost.isNullOrBlank()) {
+            val hostBytes = targetHost.toByteArray(Charsets.US_ASCII)
+            reqStream.write(0x03) // DOMAINNAME
+            reqStream.write(hostBytes.size.coerceAtMost(255))
+            reqStream.write(hostBytes, 0, hostBytes.size.coerceAtMost(255))
+        } else {
+            val ip = requireNotNull(targetIp)
+            reqStream.write(0x01) // IPv4
+            reqStream.write(ip, 0, 4)
+        }
+        reqStream.write((targetPort ushr 8) and 0xFF)
+        reqStream.write(targetPort and 0xFF)
+        out.write(reqStream.toByteArray())
         out.flush()
 
         val respVer = input.readUnsignedByte()

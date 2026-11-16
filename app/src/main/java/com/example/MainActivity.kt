@@ -382,9 +382,10 @@ fun DeshTunnelApp(viewModel: DeshTunnelViewModel = viewModel()) {
                                     },
                                     onEnableBkashSplitTunnel = {
                                         viewModel.enableBkashSplitTunnel()
-                                        navigateToTab(NavRoutes.APPS)
-                                    },
-                                    onOpenAppsTab = { navigateToTab(NavRoutes.APPS) }
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(strings.bkashAutoSetupToast)
+                                        }
+                                    }
                                 )
                             }
                             composable(NavRoutes.GATEWAYS) {

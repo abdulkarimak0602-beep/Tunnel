@@ -169,7 +169,16 @@ class DeshTunnelViewModel(application: Application) : AndroidViewModel(applicati
     fun refreshPublicIp() {
         viewModelScope.launch {
             transientState.update { it.copy(isCheckingIp = true, ipError = null) }
-            networkRepo.fetchPublicIp()
+            val activeGw = uiState.value.activeSelectedGateway
+            val isConnectedProxy = VpnStateHolder.connectionState.value == ConnectionState.CONNECTED &&
+                !activeGw.isBuiltInShield &&
+                activeGw.protocol != TunnelProtocol.DNS_SHIELD
+            val result = if (isConnectedProxy) {
+                networkRepo.verifyGatewayExitIp(activeGw)
+            } else {
+                networkRepo.fetchPublicIp()
+            }
+            result
                 .onSuccess { info ->
                     transientState.update {
                         it.copy(publicIpInfo = info, isCheckingIp = false, ipError = null)
@@ -261,6 +270,7 @@ class DeshTunnelViewModel(application: Application) : AndroidViewModel(applicati
             )
             prefsRepo.addOrUpdateGateway(gw)
             testGatewayLatency(gw)
+            verifyGatewayExitIp(gw)
         }
     }
 
@@ -368,12 +378,26 @@ class DeshTunnelViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             val current = uiState.value.preferences.allowedPackages.toMutableSet()
             current.add("com.bKash.customerapp")
-            // Also include common browsers if installed so Amber IT web portal routes through the tunnel too
+            // Also include common browsers if installed so Amber IT / bKash web portals route through the BD tunnel too
             val browserCandidates = listOf("com.android.chrome", "org.mozilla.firefox", "com.sec.android.app.sbrowser")
             val installedPkgs = uiState.value.installedApps.map { it.packageName }.toSet()
             browserCandidates.firstOrNull { installedPkgs.contains(it) }?.let { current.add(it) }
+            prefsRepo.setSecureDnsEnabled(true)
+            prefsRepo.setKillSwitch(true)
             prefsRepo.setSplitTunnelMode(SplitTunnelMode.SELECTED_ONLY)
             prefsRepo.setAllowedPackages(current)
+            if (VpnStateHolder.connectionState.value == ConnectionState.CONNECTED) {
+                val state = uiState.value
+                DeshVpnService.startConnect(
+                    context = getApplication<Application>().applicationContext,
+                    gateway = state.activeSelectedGateway,
+                    dnsProvider = state.preferences.dnsProvider,
+                    secureDnsEnabled = true,
+                    killSwitch = true,
+                    splitMode = SplitTunnelMode.SELECTED_ONLY,
+                    allowedPackages = current
+                )
+            }
         }
     }
 
@@ -484,8 +508,31 @@ class DeshTunnelViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun parseProxyUri(raw: String): ParsedProxyUri? {
-        val trimmed = raw.trim()
+        val trimmed = raw.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: return null
         if (trimmed.isBlank()) return null
+
+        // Support ip:port:user:pass format widely used by residential BD proxy providers
+        if ("://" !in trimmed && "@" !in trimmed) {
+            val parts = trimmed.split(":")
+            if (parts.size == 4) {
+                val host = parts[0].trim()
+                val port = parts[1].trim().toIntOrNull()
+                val user = parts[2].trim()
+                val pass = parts[3].trim()
+                if (host.isNotBlank() && port != null && port in 1..65535) {
+                    val proto = if (port == 443 || port == 8443) TunnelProtocol.SOCKS5_TLS else TunnelProtocol.SOCKS5
+                    return ParsedProxyUri(host, port, proto, user, pass)
+                }
+            } else if (parts.size == 2) {
+                val host = parts[0].trim()
+                val port = parts[1].trim().toIntOrNull()
+                if (host.isNotBlank() && port != null && port in 1..65535) {
+                    val proto = if (port == 443 || port == 8443) TunnelProtocol.SOCKS5_TLS else TunnelProtocol.SOCKS5
+                    return ParsedProxyUri(host, port, proto, "", "")
+                }
+            }
+        }
+
         return runCatching {
             val normalized = if ("://" in trimmed) trimmed else "socks5://$trimmed"
             val uri = URI(normalized)

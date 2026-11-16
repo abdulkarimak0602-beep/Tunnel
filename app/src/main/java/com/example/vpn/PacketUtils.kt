@@ -140,6 +140,42 @@ object PacketUtils {
     fun ipBytesToString(ip: ByteArray): String =
         InetAddress.getByAddress(ip).hostAddress ?: "0.0.0.0"
 
+    fun isAaaaDnsQuery(query: ByteArray): Boolean {
+        if (query.size < 18) return false
+        val qdCount = readUInt16(query, 4)
+        if (qdCount != 1) return false
+        var idx = 12
+        while (idx < query.size) {
+            val labelLen = query[idx].toInt() and 0xFF
+            if (labelLen == 0) {
+                idx += 1
+                break
+            }
+            if ((labelLen and 0xC0) != 0) return false
+            idx += 1 + labelLen
+        }
+        if (idx + 4 > query.size) return false
+        val qType = readUInt16(query, idx)
+        val qClass = readUInt16(query, idx + 2)
+        return qType == 28 && qClass == 1
+    }
+
+    fun buildEmptyDnsResponse(query: ByteArray): ByteArray? {
+        if (query.size < 12) return null
+        val resp = query.copyOf()
+        // Standard response, RD preserved from query, RA=1, RCODE=0
+        resp[2] = (0x80 or (query[2].toInt() and 0x01)).toByte()
+        resp[3] = 0x80.toByte()
+        // ANCOUNT=0, NSCOUNT=0, ARCOUNT=0
+        resp[6] = 0
+        resp[7] = 0
+        resp[8] = 0
+        resp[9] = 0
+        resp[10] = 0
+        resp[11] = 0
+        return resp
+    }
+
     private fun writeIpv4Header(
         packet: ByteArray,
         totalLen: Int,

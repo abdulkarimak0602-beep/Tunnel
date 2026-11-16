@@ -102,7 +102,6 @@ fun TunnelDashboardScreen(
     onSwitchGatewayClick: () -> Unit,
     onAutoFindBdRelay: () -> Unit,
     onEnableBkashSplitTunnel: () -> Unit,
-    onOpenAppsTab: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -228,20 +227,20 @@ fun TunnelDashboardScreen(
             }
         }
 
-        // 4. bKash & Amber IT Abroad Readiness Card
+        // 4. bKash & Amber IT Abroad (Bahrain) Readiness Card
         item {
             BkashAndAmberReadinessCard(
                 state = state,
                 strings = strings,
                 onEnableBkashSplitTunnel = onEnableBkashSplitTunnel,
+                onSwitchGatewayClick = onSwitchGatewayClick,
                 onOpenAmberPortal = {
                     runCatching {
                         context.startActivity(
                             Intent(Intent.ACTION_VIEW, Uri.parse("https://myswift.amberit.com.bd"))
                         )
                     }
-                },
-                onOpenAppsTab = onOpenAppsTab
+                }
             )
         }
 
@@ -664,11 +663,26 @@ private fun PublicIpVerificationCard(
                         )
                         if (ipInfo.isp.isNotBlank()) {
                             Text(
-                                text = ipInfo.isp,
+                                text = listOf(ipInfo.isp, ipInfo.asn).filter { it.isNotBlank() }.joinToString(" • "),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (ipInfo.isBangladesh) {
+                            Text(
+                                text = if (ipInfo.isLikelyResidentialIsp) {
+                                    strings.residentialIspBadge
+                                } else {
+                                    strings.datacenterIspWarning
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (ipInfo.isLikelyResidentialIsp) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.secondary
+                                }
                             )
                         }
                     }
@@ -931,10 +945,16 @@ private fun BkashAndAmberReadinessCard(
     state: DeshTunnelUiState,
     strings: UiStrings,
     onEnableBkashSplitTunnel: () -> Unit,
-    onOpenAmberPortal: () -> Unit,
-    onOpenAppsTab: () -> Unit
+    onSwitchGatewayClick: () -> Unit,
+    onOpenAmberPortal: () -> Unit
 ) {
     val isBd = state.publicIpInfo?.isBangladesh == true
+    val hasBdProxyGateway = !state.activeSelectedGateway.isBuiltInShield
+    val hasAntiLeakReady = state.preferences.secureDnsEnabled &&
+        state.preferences.killSwitchEnabled &&
+        state.preferences.allowedPackages.contains("com.bKash.customerapp")
+    var showRequirements by remember { mutableStateOf(true) }
+
     Card(
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
@@ -948,6 +968,9 @@ private fun BkashAndAmberReadinessCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showRequirements = !showRequirements },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -967,23 +990,59 @@ private fun BkashAndAmberReadinessCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Icon(
+                    imageVector = if (showRequirements) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = strings.bkashBahrainReqTitle,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    imageVector = if (isBd) Icons.Rounded.CheckCircle else Icons.Rounded.WarningAmber,
-                    contentDescription = null,
-                    tint = if (isBd) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = if (isBd) strings.bdIpVerifiedBadge else strings.bdIpRequiredWarn,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isBd) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                )
+            // Live Bahrain -> bKash checklist badges
+            ChecklistStatusRow(
+                ok = isBd,
+                text = if (isBd) strings.bdIpVerifiedBadge else strings.bdIpRequiredWarn
+            )
+            ChecklistStatusRow(
+                ok = hasBdProxyGateway,
+                text = if (hasBdProxyGateway) {
+                    "${state.activeSelectedGateway.name} (${state.activeSelectedGateway.protocol.displayName})"
+                } else {
+                    "${strings.bkashReqProxyLabel} ${strings.bkashReqProxyValue}"
+                }
+            )
+            ChecklistStatusRow(
+                ok = hasAntiLeakReady,
+                text = "${strings.bkashReqSecurityLabel} ${strings.bkashReqSecurityValue}"
+            )
+
+            AnimatedVisibility(visible = showRequirements) {
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = strings.bkashBahrainReqTitle,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "${strings.bkashReqIpLabel} ${strings.bkashReqIpValue}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = strings.bkashReqDeviceTips,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             Text(
@@ -996,35 +1055,57 @@ private fun BkashAndAmberReadinessCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (state.isBkashInstalled) {
-                    FilledTonalButton(
-                        onClick = onEnableBkashSplitTunnel,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(strings.routeBkashOnlyButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                } else {
-                    FilledTonalButton(
-                        onClick = onOpenAppsTab,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(strings.checkAllSites, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+                FilledTonalButton(
+                    onClick = onEnableBkashSplitTunnel,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("bkash_auto_setup_button")
+                ) {
+                    Text(strings.bkashAutoSetupButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
 
                 OutlinedButton(
-                    onClick = onOpenAmberPortal,
+                    onClick = if (hasBdProxyGateway) onOpenAmberPortal else onSwitchGatewayClick,
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                        imageVector = if (hasBdProxyGateway) Icons.AutoMirrored.Rounded.OpenInNew else Icons.Rounded.Shield,
                         contentDescription = null,
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(strings.openAmberPortalButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        text = if (hasBdProxyGateway) strings.openAmberPortalButton else strings.addGateway,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ChecklistStatusRow(
+    ok: Boolean,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.WarningAmber,
+            contentDescription = null,
+            tint = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(15.dp)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

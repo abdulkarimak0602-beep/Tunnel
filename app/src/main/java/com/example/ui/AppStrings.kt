@@ -126,7 +126,22 @@ data class UiStrings(
     val verifyExitIpButton: String,
     val verifyingExitIp: String,
     val amberPresetChip: String,
-    val vpsPresetChip: String
+    val vpsPresetChip: String,
+    // bKash from Bahrain IP & Proxy Requirements
+    val bkashBahrainReqTitle: String,
+    val bkashReqIpLabel: String,
+    val bkashReqIpValue: String,
+    val bkashReqProxyLabel: String,
+    val bkashReqProxyValue: String,
+    val bkashReqSecurityLabel: String,
+    val bkashReqSecurityValue: String,
+    val bkashReqDeviceTips: String,
+    val bkashAutoSetupButton: String,
+    val bkashAutoSetupToast: String,
+    val pasteFromClipboard: String,
+    val residentialIspBadge: String,
+    val datacenterIspWarning: String,
+    val httpsPresetChip: String
 )
 
 object AppStrings {
@@ -249,7 +264,21 @@ object AppStrings {
         verifyExitIpButton = "BD IP যাচাই",
         verifyingExitIp = "যাচাই হচ্ছে…",
         amberPresetChip = "Amber IT বাসার রাউটার",
-        vpsPresetChip = "ঢাকা VPS (TLS 1.3)"
+        vpsPresetChip = "ঢাকা VPS (TLS 1.3)",
+        bkashBahrainReqTitle = "বাহরাইন থেকে বিকাশ (bKash) চালাতে যা যা লাগবে",
+        bkashReqIpLabel = "১. IP ধরন:",
+        bkashReqIpValue = "বাংলাদেশি রেসিডেনশিয়াল / হোম ব্রডব্যান্ড IP (যেমন: Amber IT, Link3, Dot, BTCL)। ফ্রি/ডেটাসেন্টার IP-তে বিকাশ ব্লক করে।",
+        bkashReqProxyLabel = "২. প্রক্সি ও পোর্ট:",
+        bkashReqProxyValue = "SOCKS5 + TLS 1.3 (পোর্ট 443) অথবা SOCKS5 (পোর্ট 1080) বা HTTPS CONNECT (পোর্ট 443) + ইউজারনেম ও পাসওয়ার্ড।",
+        bkashReqSecurityLabel = "৩. লিক সুরক্ষা:",
+        bkashReqSecurityValue = "DNS-over-TLS (853) + কিল সুইচ চালু রাখুন (যাতে বাহরাইনের IPv4/IPv6 লিক না হয়) এবং শুধু bKash স্প্লিট-টানেল করুন।",
+        bkashReqDeviceTips = "টিপস: বাহরাইন থেকে বিকাশ OTP-র জন্য বাংলা সিমের রোমিং SMS চালু রাখুন এবং ফোনের Mock Location বন্ধ রাখুন।",
+        bkashAutoSetupButton = "bKash অটো-সেটআপ (বাহরাইন)",
+        bkashAutoSetupToast = "bKash সেফটি সেটআপ সম্পন্ন: DoT 1.3, Kill Switch এবং Split Tunnel চালু হয়েছে। এখন একটি BD প্রক্সি যোগ/সংযুক্ত করুন।",
+        pasteFromClipboard = "পেস্ট",
+        residentialIspBadge = "রেসিডেনশিয়াল BD ISP (bKash উপযোগী)",
+        datacenterIspWarning = "ডেটাসেন্টার/শেয়ার্ড IP — bKash ব্লক করতে পারে",
+        httpsPresetChip = "BD HTTPS প্রক্সি (:443)"
     )
 
     val english = UiStrings(
@@ -371,7 +400,21 @@ object AppStrings {
         verifyExitIpButton = "Verify BD IP",
         verifyingExitIp = "Checking…",
         amberPresetChip = "Amber IT Home Router",
-        vpsPresetChip = "Dhaka VPS (TLS 1.3)"
+        vpsPresetChip = "Dhaka VPS (TLS 1.3)",
+        bkashBahrainReqTitle = "What You Need for bKash from Bahrain",
+        bkashReqIpLabel = "1. BD IP Type:",
+        bkashReqIpValue = "Bangladesh Residential / Broadband ISP IP (e.g., Amber IT, Link3, Dot, BTCL). Free/datacenter IPs trigger bKash blocks.",
+        bkashReqProxyLabel = "2. Proxy & Port:",
+        bkashReqProxyValue = "SOCKS5 + TLS 1.3 (Port 443), SOCKS5 (Port 1080), or HTTPS CONNECT (Port 443) with Username & Password.",
+        bkashReqSecurityLabel = "3. Anti-Leak Rules:",
+        bkashReqSecurityValue = "Keep DNS-over-TLS (853) + Kill Switch ON (blocks Bahrain IPv4/IPv6 leaks) and Split-Tunnel bKash app.",
+        bkashReqDeviceTips = "Tip: Keep your BD SIM roaming active for bKash SMS OTP and ensure Android Mock Location is OFF.",
+        bkashAutoSetupButton = "Auto-Setup bKash (Bahrain)",
+        bkashAutoSetupToast = "bKash safety rules enabled: DoT 1.3, Kill Switch & Split Tunnel ON. Now connect a BD proxy.",
+        pasteFromClipboard = "Paste",
+        residentialIspBadge = "Residential BD ISP (bKash Safe)",
+        datacenterIspWarning = "Datacenter / Shared IP — bKash may block",
+        httpsPresetChip = "BD HTTPS Proxy (:443)"
     )
 
     fun forLanguage(language: AppLanguage): UiStrings =

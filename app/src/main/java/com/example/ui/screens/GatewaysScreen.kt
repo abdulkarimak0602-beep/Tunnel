@@ -20,7 +20,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Speed
@@ -55,6 +57,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -180,6 +183,49 @@ fun GatewaysScreen(
                         onVerifyExit = null,
                         onDelete = null
                     )
+                }
+
+                // bKash from Bahrain IP & Proxy Spec Banner
+                item {
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                                Text(
+                                    text = strings.bkashBahrainReqTitle,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                text = "${strings.bkashReqIpLabel} ${strings.bkashReqIpValue}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${strings.bkashReqProxyLabel} ${strings.bkashReqProxyValue}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
 
                 if (state.customGateways.isEmpty()) {
@@ -464,15 +510,33 @@ private fun GatewayCard(
             }
 
             if (verifiedExit != null) {
-                Text(
-                    text = "${verifiedExit.ip} • ${verifiedExit.countryCode} (${verifiedExit.isp.ifBlank { verifiedExit.countryName }})",
-                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = JetBrainsMonoFontFamily),
-                    color = if (verifiedExit.isBangladesh) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.secondary
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    val asnSuffix = if (verifiedExit.asn.isNotBlank()) " • ${verifiedExit.asn}" else ""
+                    Text(
+                        text = "${verifiedExit.ip} • ${verifiedExit.countryCode} (${verifiedExit.isp.ifBlank { verifiedExit.countryName }}$asnSuffix)",
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = JetBrainsMonoFontFamily),
+                        color = if (verifiedExit.isBangladesh) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.secondary
+                        }
+                    )
+                    if (verifiedExit.isBangladesh) {
+                        Text(
+                            text = if (verifiedExit.isLikelyResidentialIsp) {
+                                strings.residentialIspBadge
+                            } else {
+                                strings.datacenterIspWarning
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (verifiedExit.isLikelyResidentialIsp) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.secondary
+                            }
+                        )
                     }
-                )
+                }
             }
         }
     }
@@ -539,6 +603,8 @@ private fun AddGatewayForm(
             style = MaterialTheme.typography.headlineSmall
         )
 
+        val clipboard = LocalClipboardManager.current
+
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -546,7 +612,7 @@ private fun AddGatewayForm(
             FilterChip(
                 selected = false,
                 onClick = {
-                    name = "Amber IT Home Dhaka"
+                    name = "bKash Amber IT (BD)"
                     city = "Dhaka (Amber IT)"
                     portStr = "1080"
                     protocol = TunnelProtocol.SOCKS5
@@ -556,28 +622,58 @@ private fun AddGatewayForm(
             FilterChip(
                 selected = false,
                 onClick = {
-                    name = "Dhaka VPS (TLS 1.3)"
-                    city = "Dhaka"
+                    name = "bKash TLS 1.3 (BD)"
+                    city = "Dhaka (TLS 1.3)"
                     portStr = "443"
                     protocol = TunnelProtocol.SOCKS5_TLS
                 },
                 label = { Text(strings.vpsPresetChip) }
             )
+            FilterChip(
+                selected = false,
+                onClick = {
+                    name = "BD HTTPS Proxy"
+                    city = "Dhaka"
+                    portStr = "443"
+                    protocol = TunnelProtocol.HTTPS_TLS
+                },
+                label = { Text(strings.httpsPresetChip) }
+            )
         }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
                 value = uriInput,
                 onValueChange = { uriInput = it },
                 label = { Text(strings.quickImportUriLabel) },
-                placeholder = { Text(strings.quickImportHint) },
+                placeholder = { Text("ip:port:user:pass") },
                 singleLine = true,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(
+                onClick = {
+                    val clipText = clipboard.getText()?.text?.trim().orEmpty()
+                    if (clipText.isNotEmpty()) {
+                        uriInput = clipText
+                        val parsed = onParseUri(clipText)
+                        if (parsed != null) {
+                            host = parsed.host
+                            portStr = parsed.port.toString()
+                            protocol = parsed.protocol
+                            username = parsed.username
+                            password = parsed.password
+                            if (name.isBlank()) name = "bKash BD (${parsed.host})"
+                            errorText = null
+                        }
+                    }
+                }
+            ) {
+                Icon(Icons.Outlined.ContentPaste, contentDescription = strings.pasteFromClipboard)
+            }
             OutlinedButton(
                 onClick = {
                     val parsed = onParseUri(uriInput)
@@ -587,7 +683,7 @@ private fun AddGatewayForm(
                         protocol = parsed.protocol
                         username = parsed.username
                         password = parsed.password
-                        if (name.isBlank()) name = "BD (${parsed.host})"
+                        if (name.isBlank()) name = "bKash BD (${parsed.host})"
                         errorText = null
                     } else {
                         errorText = strings.invalidGatewayInput

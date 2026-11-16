@@ -86,4 +86,23 @@ class PacketUtilsTest {
         assertEquals(0x01.toByte(), query[query.size - 3]) // QTYPE A
         assertEquals(0x01.toByte(), query[query.size - 1]) // QCLASS IN
     }
+
+    @Test
+    fun isAaaaDnsQuery_and_buildEmptyDnsResponse_workCorrectly() {
+        val aQuery = DnsOverTlsResolver.buildDnsQueryPacket("www.bkash.com", transactionId = 0x55AA)
+        assertEquals(false, PacketUtils.isAaaaDnsQuery(aQuery))
+
+        val aaaaQuery = aQuery.copyOf()
+        // Set QTYPE from A (1) to AAAA (28 = 0x1C)
+        aaaaQuery[aaaaQuery.size - 3] = 28.toByte()
+        assertEquals(true, PacketUtils.isAaaaDnsQuery(aaaaQuery))
+
+        val resp = PacketUtils.buildEmptyDnsResponse(aaaaQuery)
+        assertNotNull(resp)
+        assertEquals(0x55.toByte(), resp!![0])
+        assertEquals(0xAA.toByte(), resp[1])
+        assertEquals(0x81.toByte(), resp[2]) // QR=1, RD=1
+        assertEquals(0x80.toByte(), resp[3]) // RA=1, RCODE=0
+        assertEquals(0.toByte(), resp[7]) // ANCOUNT=0
+    }
 }
