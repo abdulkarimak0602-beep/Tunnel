@@ -13,6 +13,7 @@ import com.example.model.DnsProvider
 import com.example.model.GatewayProfile
 import com.example.model.SplitTunnelMode
 import com.example.model.ThemeMode
+import com.example.model.TunnelMode
 import com.example.model.TunnelProtocol
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -30,7 +31,8 @@ data class UserPreferences(
     val dnsProvider: DnsProvider = DnsProvider.CLOUDFLARE,
     val killSwitchEnabled: Boolean = false,
     val splitTunnelMode: SplitTunnelMode = SplitTunnelMode.ALL_APPS,
-    val allowedPackages: Set<String> = emptySet()
+    val allowedPackages: Set<String> = emptySet(),
+    val tunnelMode: TunnelMode = TunnelMode.VPN_TUNNEL
 )
 
 const val BUILT_IN_SHIELD_ID = "built_in_dns_shield"
@@ -47,6 +49,7 @@ class PreferencesRepository(private val context: Context) {
         private val KEY_KILL_SWITCH = booleanPreferencesKey("kill_switch")
         private val KEY_SPLIT_MODE = stringPreferencesKey("split_mode")
         private val KEY_ALLOWED_PACKAGES = stringSetPreferencesKey("allowed_packages")
+        private val KEY_TUNNEL_MODE = stringPreferencesKey("tunnel_mode")
 
         fun builtInDnsShieldGateway(language: AppLanguage): GatewayProfile = GatewayProfile(
             id = BUILT_IN_SHIELD_ID,
@@ -78,6 +81,10 @@ class PreferencesRepository(private val context: Context) {
 
         val customGateways = parseGatewaysJson(prefs[KEY_CUSTOM_GATEWAYS_JSON].orEmpty())
 
+        val tunnelMode = prefs[KEY_TUNNEL_MODE]?.let {
+            runCatching { TunnelMode.valueOf(it) }.getOrNull()
+        } ?: TunnelMode.VPN_TUNNEL
+
         UserPreferences(
             themeMode = themeMode,
             language = language,
@@ -87,7 +94,8 @@ class PreferencesRepository(private val context: Context) {
             dnsProvider = dnsProvider,
             killSwitchEnabled = prefs[KEY_KILL_SWITCH] ?: false,
             splitTunnelMode = splitMode,
-            allowedPackages = prefs[KEY_ALLOWED_PACKAGES] ?: emptySet()
+            allowedPackages = prefs[KEY_ALLOWED_PACKAGES] ?: emptySet(),
+            tunnelMode = tunnelMode
         )
     }
 
@@ -121,6 +129,10 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setAllowedPackages(packages: Set<String>) {
         context.deshDataStore.edit { it[KEY_ALLOWED_PACKAGES] = packages }
+    }
+
+    suspend fun setTunnelMode(mode: TunnelMode) {
+        context.deshDataStore.edit { it[KEY_TUNNEL_MODE] = mode.name }
     }
 
     suspend fun addOrUpdateGateway(gateway: GatewayProfile) {

@@ -25,23 +25,30 @@ class DnsOverTlsResolver(
 
     fun resolve(dnsQuery: ByteArray): ByteArray? {
         if (dnsQuery.size < 12) return null
+        val primary = resolveViaProvider(dnsQuery, dnsProvider)
+        if (primary != null) return primary
+        val fallbackProvider = if (dnsProvider == DnsProvider.CLOUDFLARE) DnsProvider.QUAD9 else DnsProvider.CLOUDFLARE
+        return resolveViaProvider(dnsQuery, fallbackProvider)
+    }
+
+    private fun resolveViaProvider(dnsQuery: ByteArray, provider: DnsProvider): ByteArray? {
         val rawSocket = Socket()
         return try {
             vpnService?.protect(rawSocket)
-            rawSocket.soTimeout = 4500
-            rawSocket.connect(InetSocketAddress(dnsProvider.ip, dnsProvider.port), 3500)
+            rawSocket.soTimeout = 3500
+            rawSocket.connect(InetSocketAddress(provider.ip, provider.port), 3000)
 
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             val sslSocket = factory.createSocket(
                 rawSocket,
-                dnsProvider.tlsHost,
-                dnsProvider.port,
+                provider.tlsHost,
+                provider.port,
                 true
             ) as SSLSocket
 
-            sslSocket.soTimeout = 4500
+            sslSocket.soTimeout = 3500
             val params = sslSocket.sslParameters
-            params.serverNames = listOf(SNIHostName(dnsProvider.tlsHost))
+            params.serverNames = listOf(SNIHostName(provider.tlsHost))
             params.endpointIdentificationAlgorithm = "HTTPS"
             sslSocket.sslParameters = params
             sslSocket.startHandshake()

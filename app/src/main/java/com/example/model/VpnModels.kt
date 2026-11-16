@@ -41,6 +41,11 @@ enum class SplitTunnelMode {
     SELECTED_ONLY
 }
 
+enum class TunnelMode {
+    VPN_TUNNEL,
+    NO_VPN_BRIDGE
+}
+
 data class GatewayProfile(
     val id: String,
     val name: String,

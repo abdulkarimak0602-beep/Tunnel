@@ -141,7 +141,19 @@ data class UiStrings(
     val pasteFromClipboard: String,
     val residentialIspBadge: String,
     val datacenterIspWarning: String,
-    val httpsPresetChip: String
+    val httpsPresetChip: String,
+    // No-VPN Bridge & bKash VPN-Detection Fix
+    val tunnelModeVpnLabel: String,
+    val tunnelModeBridgeLabel: String,
+    val bridgeCardTitle: String,
+    val bridgeCardSubtitle: String,
+    val bridgeRequiresGatewayWarn: String,
+    val bridgeStepsBody: String,
+    val copyHostPortButton: String,
+    val copiedHostPortToast: String,
+    val openWifiSettingsButton: String,
+    val routerTipText: String,
+    val switchToBridgeButton: String
 )
 
 object AppStrings {
@@ -278,7 +290,18 @@ object AppStrings {
         pasteFromClipboard = "পেস্ট",
         residentialIspBadge = "রেসিডেনশিয়াল BD ISP (bKash উপযোগী)",
         datacenterIspWarning = "ডেটাসেন্টার/শেয়ার্ড IP — bKash ব্লক করতে পারে",
-        httpsPresetChip = "BD HTTPS প্রক্সি (:443)"
+        httpsPresetChip = "BD HTTPS প্রক্সি (:443)",
+        tunnelModeVpnLabel = "VPN টানেল",
+        tunnelModeBridgeLabel = "VPN-ছাড়া ব্রিজ",
+        bridgeCardTitle = "bKash \"VPN শনাক্ত হয়েছে\" সমাধান (No-VPN ব্রিজ)",
+        bridgeCardSubtitle = "অ্যান্ড্রয়েড VPN আইকন ও TRANSPORT_VPN ছাড়াই BD প্রক্সিতে চালান",
+        bridgeRequiresGatewayWarn = "নোট: প্রথমে 'গেটওয়ে' ট্যাব থেকে একটি BD SOCKS5 বা HTTPS প্রক্সি নির্বাচন করুন।",
+        bridgeStepsBody = "bKash অ্যাপ অ্যান্ড্রয়েডের সিস্টেম VPN (tun0) দেখলেই 'VPN শনাক্ত হয়েছে' ও 'ইন্টারনেট কানেকশন' এরর দেয়।\n\nসমাধান ১ (একই ফোনে — VPN ছাড়া):\n১) উপরে 'VPN-ছাড়া ব্রিজ' সিলেক্ট করে সংযুক্ত করুন।\n২) আপনার ফোনের Wi-Fi সেটিংসে গিয়ে Connected Wi-Fi → Proxy: Manual → Host: 127.0.0.1 এবং Port: 8888 বসান (কাজ শেষে Proxy: None করে দেবেন)।",
+        copyHostPortButton = "127.0.0.1:8888 কপি",
+        copiedHostPortToast = "127.0.0.1 এবং পোর্ট 8888 তথ্য কপি হয়েছে",
+        openWifiSettingsButton = "Wi-Fi সেটিংস খুলুন",
+        routerTipText = "সমাধান ২ (১০০% গ্যারান্টি): যদি bKash Wi-Fi Proxy-ও ব্লক করে, তবে অন্য একটি ফোন বা ট্রাভেল রাউটারে BD VPN/Proxy চালু করে সেই হটস্পট/Wi-Fi এই ফোনে ব্যবহার করুন—তাহলে এই ফোনে কোনো VPN বা Proxy থাকবে না।",
+        switchToBridgeButton = "VPN-ছাড়া ব্রিজ মোড চালু করুন"
     )
 
     val english = UiStrings(
@@ -414,7 +437,18 @@ object AppStrings {
         pasteFromClipboard = "Paste",
         residentialIspBadge = "Residential BD ISP (bKash Safe)",
         datacenterIspWarning = "Datacenter / Shared IP — bKash may block",
-        httpsPresetChip = "BD HTTPS Proxy (:443)"
+        httpsPresetChip = "BD HTTPS Proxy (:443)",
+        tunnelModeVpnLabel = "VPN Tunnel",
+        tunnelModeBridgeLabel = "No-VPN Bridge",
+        bridgeCardTitle = "Fix bKash \"VPN Detected\" (No-VPN Bridge)",
+        bridgeCardSubtitle = "Route via BD proxy on 127.0.0.1:8888 without Android TRANSPORT_VPN",
+        bridgeRequiresGatewayWarn = "Select or add a BD SOCKS5 / HTTPS gateway in the Gateways tab first.",
+        bridgeStepsBody = "bKash checks Android's OS VPN flag (TRANSPORT_VPN / tun0) and triggers both 'VPN Detected' and 'Check Internet Connection' errors whenever any VpnService is active.\n\nFix 1 (Same Phone — Zero OS VPN):\n1) Switch to 'No-VPN Bridge' above and connect.\n2) Open Wi-Fi Settings → Connected Wi-Fi → Proxy: Manual → Host: 127.0.0.1, Port: 8888 (reset to None when done).",
+        copyHostPortButton = "Copy 127.0.0.1:8888",
+        copiedHostPortToast = "Copied 127.0.0.1 (Port 8888)",
+        openWifiSettingsButton = "Wi-Fi Settings",
+        routerTipText = "Fix 2 (100% Guaranteed if bKash also checks Wi-Fi Proxy): Run the BD VPN/Proxy on a second phone hotspot or travel router and connect this phone to that Wi-Fi with zero VPN/proxy enabled.",
+        switchToBridgeButton = "Switch to No-VPN Bridge"
     )
 
     fun forLanguage(language: AppLanguage): UiStrings =

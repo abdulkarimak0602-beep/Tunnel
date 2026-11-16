@@ -385,7 +385,8 @@ fun DeshTunnelApp(viewModel: DeshTunnelViewModel = viewModel()) {
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar(strings.bkashAutoSetupToast)
                                         }
-                                    }
+                                    },
+                                    onSetTunnelMode = { mode -> viewModel.setTunnelMode(mode) }
                                 )
                             }
                             composable(NavRoutes.GATEWAYS) {

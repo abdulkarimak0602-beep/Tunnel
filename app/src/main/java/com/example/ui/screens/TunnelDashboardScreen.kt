@@ -2,6 +2,8 @@ package com.example.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -33,11 +35,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
@@ -60,6 +64,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -79,17 +86,21 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.model.ConnectionState
+import com.example.model.TunnelMode
 import com.example.ui.UiStrings
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.viewmodel.DeshTunnelUiState
+import com.example.vpn.LocalProxyBridgeService
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -102,6 +113,7 @@ fun TunnelDashboardScreen(
     onSwitchGatewayClick: () -> Unit,
     onAutoFindBdRelay: () -> Unit,
     onEnableBkashSplitTunnel: () -> Unit,
+    onSetTunnelMode: (TunnelMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -127,7 +139,8 @@ fun TunnelDashboardScreen(
                 strings = strings,
                 nowMs = nowMs,
                 onToggleConnection = onToggleConnection,
-                onSwitchGatewayClick = onSwitchGatewayClick
+                onSwitchGatewayClick = onSwitchGatewayClick,
+                onSetTunnelMode = onSetTunnelMode
             )
         }
 
@@ -227,7 +240,17 @@ fun TunnelDashboardScreen(
             }
         }
 
-        // 4. bKash & Amber IT Abroad (Bahrain) Readiness Card
+        // 4. bKash "VPN Detected" & Internet Fix Card (No-VPN Bridge + Router Guide)
+        item {
+            BkashVpnDetectedFixCard(
+                state = state,
+                strings = strings,
+                onSetTunnelMode = onSetTunnelMode,
+                onSwitchGatewayClick = onSwitchGatewayClick
+            )
+        }
+
+        // 5. bKash & Amber IT Abroad (Bahrain) Readiness Card
         item {
             BkashAndAmberReadinessCard(
                 state = state,
@@ -327,7 +350,8 @@ private fun HeroConnectionCard(
     strings: UiStrings,
     nowMs: Long,
     onToggleConnection: () -> Unit,
-    onSwitchGatewayClick: () -> Unit
+    onSwitchGatewayClick: () -> Unit,
+    onSetTunnelMode: (TunnelMode) -> Unit
 ) {
     val isConnected = state.connectionState == ConnectionState.CONNECTED
     val isConnecting = state.connectionState == ConnectionState.CONNECTING
@@ -497,7 +521,32 @@ private fun HeroConnectionCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Connection Mode Switcher (OS VPN Tunnel vs No-VPN Bridge for bKash)
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("tunnel_mode_selector")
+                ) {
+                    SegmentedButton(
+                        selected = state.preferences.tunnelMode == TunnelMode.VPN_TUNNEL,
+                        onClick = { onSetTunnelMode(TunnelMode.VPN_TUNNEL) },
+                        shape = SegmentedButtonDefaults.itemShape(0, 2)
+                    ) {
+                        Text(strings.tunnelModeVpnLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    SegmentedButton(
+                        selected = state.preferences.tunnelMode == TunnelMode.NO_VPN_BRIDGE,
+                        onClick = { onSetTunnelMode(TunnelMode.NO_VPN_BRIDGE) },
+                        shape = SegmentedButtonDefaults.itemShape(1, 2),
+                        modifier = Modifier.testTag("no_vpn_bridge_mode_btn")
+                    ) {
+                        Text(strings.tunnelModeBridgeLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Active Gateway Selector Bar
                 Surface(
@@ -1107,5 +1156,144 @@ private fun ChecklistStatusRow(
             style = MaterialTheme.typography.bodySmall,
             color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun BkashVpnDetectedFixCard(
+    state: DeshTunnelUiState,
+    strings: UiStrings,
+    onSetTunnelMode: (TunnelMode) -> Unit,
+    onSwitchGatewayClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val isBridgeMode = state.preferences.tunnelMode == TunnelMode.NO_VPN_BRIDGE
+    val needsProxyGateway = state.activeSelectedGateway.isBuiltInShield
+
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.25f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.45f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Shield,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = strings.bridgeCardTitle,
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = strings.bridgeCardSubtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (isBridgeMode && needsProxyGateway) {
+                Text(
+                    text = strings.bridgeRequiresGatewayWarn,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+
+            Text(
+                text = strings.bridgeStepsBody,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceContainerLowest
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Host: ${LocalProxyBridgeService.BRIDGE_HOST}   Port: ${LocalProxyBridgeService.BRIDGE_PORT}",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontFamily = JetBrainsMonoFontFamily
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (!isBridgeMode) {
+                    Button(
+                        onClick = { onSetTunnelMode(TunnelMode.NO_VPN_BRIDGE) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("switch_to_bridge_button")
+                    ) {
+                        Text(strings.switchToBridgeButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                } else if (needsProxyGateway) {
+                    Button(
+                        onClick = onSwitchGatewayClick,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(strings.addGateway, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                } else {
+                    FilledTonalButton(
+                        onClick = {
+                            clipboard.setText(AnnotatedString(LocalProxyBridgeService.BRIDGE_HOST))
+                            Toast.makeText(context, strings.copiedHostPortToast, Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(strings.copyHostPortButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Outlined.Wifi, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(strings.openWifiSettingsButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            Text(
+                text = strings.routerTipText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

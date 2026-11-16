@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -119,6 +120,7 @@ class DeshVpnService : VpnService() {
     ) {
         val serverSeq = AtomicLong((System.nanoTime() and 0x7FFFFFFFL) + 1000L)
         val clientNextSeq = AtomicLong((initialClientSeq + 1L) and 0xFFFFFFFFL)
+        val upstreamQueue = Channel<ByteArray>(Channel.UNLIMITED)
         @Volatile
         var socket: Socket? = null
         @Volatile
@@ -128,6 +130,7 @@ class DeshVpnService : VpnService() {
             if (closed) return
             closed = true
             tcpSessions.remove(key)
+            upstreamQueue.close()
             try {
                 socket?.close()
             } catch (_: Exception) {
@@ -503,6 +506,20 @@ class DeshVpnService : VpnService() {
                     )
                     writePacketToTun(synAck)
 
+                    // Sequential upstream writer so multi-packet TLS handshakes stay strictly in order
+                    val writerJob = serviceScope.launch {
+                        try {
+                            val out = result.socket.getOutputStream()
+                            for (chunk in session.upstreamQueue) {
+                                if (session.closed || !isRunning.get()) break
+                                out.write(chunk)
+                                out.flush()
+                            }
+                        } catch (_: Exception) {
+                            session.closeQuietly()
+                        }
+                    }
+
                     // Pump downstream data from proxy socket back into TUN
                     val proxyIn = result.socket.getInputStream()
                     val readBuf = ByteArray(1360)
@@ -520,6 +537,7 @@ class DeshVpnService : VpnService() {
                                 flags = PacketUtils.TCP_FIN or PacketUtils.TCP_ACK
                             )
                             writePacketToTun(finPkt)
+                            writerJob.cancel()
                             session.closeQuietly()
                             break
                         }
@@ -564,26 +582,29 @@ class DeshVpnService : VpnService() {
             val expectedSeq = session.clientNextSeq.get()
             if (tcp.seqNum == expectedSeq) {
                 session.clientNextSeq.set((expectedSeq + payload.size) and 0xFFFFFFFFL)
-                serviceScope.launch {
-                    try {
-                        session.socket?.getOutputStream()?.let { out ->
-                            out.write(payload)
-                            out.flush()
-                        }
-                        val ackPkt = PacketUtils.buildTcpPacket(
-                            srcIp = session.dstIpBytes,
-                            dstIp = session.srcIpBytes,
-                            srcPort = session.dstPort,
-                            dstPort = session.srcPort,
-                            seqNum = session.serverSeq.get(),
-                            ackNum = session.clientNextSeq.get(),
-                            flags = PacketUtils.TCP_ACK
-                        )
-                        writePacketToTun(ackPkt)
-                    } catch (_: Exception) {
-                        session.closeQuietly()
-                    }
-                }
+                session.upstreamQueue.trySend(payload)
+                val ackPkt = PacketUtils.buildTcpPacket(
+                    srcIp = session.dstIpBytes,
+                    dstIp = session.srcIpBytes,
+                    srcPort = session.dstPort,
+                    dstPort = session.srcPort,
+                    seqNum = session.serverSeq.get(),
+                    ackNum = session.clientNextSeq.get(),
+                    flags = PacketUtils.TCP_ACK
+                )
+                writePacketToTun(ackPkt)
+            } else if (tcp.seqNum < expectedSeq) {
+                // Re-ACK duplicate/retransmitted packet so client stack does not stall
+                val ackPkt = PacketUtils.buildTcpPacket(
+                    srcIp = session.dstIpBytes,
+                    dstIp = session.srcIpBytes,
+                    srcPort = session.dstPort,
+                    dstPort = session.srcPort,
+                    seqNum = session.serverSeq.get(),
+                    ackNum = expectedSeq,
+                    flags = PacketUtils.TCP_ACK
+                )
+                writePacketToTun(ackPkt)
             }
         }
 

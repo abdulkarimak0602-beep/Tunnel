@@ -50,6 +50,15 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Encrypted VPN and proxy tunnel routing user-selected network traffic securely" />
         </service>
+
+        <service
+            android:name=".vpn.LocalProxyBridgeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Local HTTP/CONNECT proxy bridge forwarding traffic to encrypted Bangladesh gateway without OS VPN transport flag" />
+        </service>
     </application>
 
 </manifest>

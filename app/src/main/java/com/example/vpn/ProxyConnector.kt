@@ -21,12 +21,12 @@ data class ProxyConnectionResult(
 object ProxyConnector {
 
     fun verifyGatewayHandshake(
-        vpnService: VpnService,
+        vpnService: VpnService?,
         gateway: GatewayProfile
     ): Result<String> {
         val rawSocket = Socket()
         return try {
-            vpnService.protect(rawSocket)
+            vpnService?.protect(rawSocket)
             rawSocket.soTimeout = 5000
             rawSocket.connect(InetSocketAddress(gateway.host, gateway.port), 4500)
 

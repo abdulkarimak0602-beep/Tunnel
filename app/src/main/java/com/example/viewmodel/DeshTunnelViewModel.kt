@@ -18,10 +18,12 @@ import com.example.model.InstalledAppInfo
 import com.example.model.PublicIpInfo
 import com.example.model.SplitTunnelMode
 import com.example.model.ThemeMode
+import com.example.model.TunnelMode
 import com.example.model.TunnelProtocol
 import com.example.model.TunnelTelemetry
 import com.example.vpn.DeshVpnService
 import com.example.vpn.DnsOverTlsResolver
+import com.example.vpn.LocalProxyBridgeService
 import com.example.vpn.VpnStateHolder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -195,15 +197,21 @@ class DeshTunnelViewModel(application: Application) : AndroidViewModel(applicati
     fun startVpnConnection() {
         val state = uiState.value
         val ctx = getApplication<Application>().applicationContext
-        DeshVpnService.startConnect(
-            context = ctx,
-            gateway = state.activeSelectedGateway,
-            dnsProvider = state.preferences.dnsProvider,
-            secureDnsEnabled = state.preferences.secureDnsEnabled,
-            killSwitch = state.preferences.killSwitchEnabled,
-            splitMode = state.preferences.splitTunnelMode,
-            allowedPackages = state.preferences.allowedPackages
-        )
+        if (state.preferences.tunnelMode == TunnelMode.NO_VPN_BRIDGE) {
+            DeshVpnService.stopTunnel(ctx)
+            LocalProxyBridgeService.startBridge(ctx, state.activeSelectedGateway)
+        } else {
+            LocalProxyBridgeService.stopBridge(ctx)
+            DeshVpnService.startConnect(
+                context = ctx,
+                gateway = state.activeSelectedGateway,
+                dnsProvider = state.preferences.dnsProvider,
+                secureDnsEnabled = state.preferences.secureDnsEnabled,
+                killSwitch = state.preferences.killSwitchEnabled,
+                splitMode = state.preferences.splitTunnelMode,
+                allowedPackages = state.preferences.allowedPackages
+            )
+        }
         // Re-check public IP shortly after tunnel stabilizes
         viewModelScope.launch {
             kotlinx.coroutines.delay(2500L)
@@ -215,7 +223,11 @@ class DeshTunnelViewModel(application: Application) : AndroidViewModel(applicati
 
     fun stopVpnConnection() {
         val ctx = getApplication<Application>().applicationContext
-        DeshVpnService.stopTunnel(ctx)
+        if (uiState.value.preferences.tunnelMode == TunnelMode.NO_VPN_BRIDGE) {
+            LocalProxyBridgeService.stopBridge(ctx)
+        } else {
+            DeshVpnService.stopTunnel(ctx)
+        }
         viewModelScope.launch {
             kotlinx.coroutines.delay(1000L)
             refreshPublicIp()
@@ -223,7 +235,23 @@ class DeshTunnelViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun needsVpnConsent(): android.content.Intent? {
+        if (uiState.value.preferences.tunnelMode == TunnelMode.NO_VPN_BRIDGE) {
+            return null
+        }
         return VpnService.prepare(getApplication<Application>().applicationContext)
+    }
+
+    fun setTunnelMode(mode: TunnelMode) {
+        viewModelScope.launch {
+            val wasConnected = VpnStateHolder.connectionState.value == ConnectionState.CONNECTED ||
+                VpnStateHolder.connectionState.value == ConnectionState.CONNECTING
+            if (wasConnected) {
+                val ctx = getApplication<Application>().applicationContext
+                DeshVpnService.stopTunnel(ctx)
+                LocalProxyBridgeService.stopBridge(ctx)
+            }
+            prefsRepo.setTunnelMode(mode)
+        }
     }
 
     fun setThemeMode(mode: ThemeMode) {
